@@ -82,7 +82,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         _ = TranscriptionHistoryStore.shared
         #if arch(arm64)
         Task {
-            await CompactSpeechModelReleaseCatalog.shared.refreshIfNeeded()
             SpeechModelInstallationSnapshot.shared.refresh()
         }
         #endif

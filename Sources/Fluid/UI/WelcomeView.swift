@@ -357,12 +357,6 @@ struct OnboardingFlowView: View {
         }
         .onAppear {
             self.installations.refresh()
-            Task {
-                let catalog = CompactSpeechModelReleaseCatalog.shared
-                let revision = catalog.revision
-                await catalog.refreshIfNeeded()
-                if catalog.revision != revision { self.installations.refresh() }
-            }
             self.isOnboardingFlowVisible = true
             self.syncOnboardingSelectionFromSettings()
             self.playLandingWelcomeSoundIfNeeded()

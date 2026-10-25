@@ -109,6 +109,13 @@ final class HuggingFaceModelDownloader {
                 let files = try await listFilesRecursively(relativePath: item.path)
                 for entry in files {
                     let rel = entry.path
+                    guard !rel.hasPrefix("/"), !rel.split(separator: "/").contains(".."), !rel.split(separator: "/").contains(".") else {
+                        throw NSError(
+                            domain: "HF",
+                            code: -10,
+                            userInfo: [NSLocalizedDescriptionKey: "Invalid relative path in model repository: \(rel)"]
+                        )
+                    }
                     if let size = entry.size, size >= 0 {
                         listedSizeByPath[rel] = size
                     }

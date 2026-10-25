@@ -570,8 +570,8 @@ final class CommandModeService: ObservableObject {
                     NotchContentState.shared.addCommandMessage(role: .status, content: statusText)
                 }
 
-                // Check if we need confirmation for destructive commands
-                if SettingsStore.shared.commandModeConfirmBeforeExecute, self.isDestructiveCommand(tc.command) {
+                // Require user confirmation for all terminal commands when confirm-before-execute is enabled
+                if SettingsStore.shared.commandModeConfirmBeforeExecute {
                     self.pendingCommand = PendingCommand(
                         id: tc.id,
                         command: tc.command,

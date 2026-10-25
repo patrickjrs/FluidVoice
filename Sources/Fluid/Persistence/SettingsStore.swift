@@ -1516,12 +1516,11 @@ final class SettingsStore: ObservableObject {
         }
     }
 
-    /// Detailed anonymous analytics toggle (default: ON). The daily activity signal is always enabled.
-    /// Uses default-true semantics so existing installs upgrading to analytics do not default to OFF.
+    /// Detailed anonymous analytics toggle (default: OFF for privacy).
     var shareDetailedAnalytics: Bool {
         get {
             let value = self.defaults.object(forKey: Keys.shareAnonymousAnalytics)
-            if value == nil { return true }
+            if value == nil { return false }
             return self.defaults.bool(forKey: Keys.shareAnonymousAnalytics)
         }
         set {
@@ -2807,7 +2806,7 @@ final class SettingsStore: ObservableObject {
     var autoUpdateCheckEnabled: Bool {
         get {
             let value = self.defaults.object(forKey: Keys.autoUpdateCheckEnabled)
-            return value as? Bool ?? true // Default to enabled
+            return value as? Bool ?? false // Default to disabled to prevent unsolicited startup checks
         }
         set {
             guard newValue != self.autoUpdateCheckEnabled else { return }

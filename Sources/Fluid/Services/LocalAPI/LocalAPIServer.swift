@@ -31,8 +31,9 @@ final class LocalAPIServer {
             }
 
             let parameters = NWParameters.tcp
+            parameters.requiredLocalEndpoint = .hostPort(host: .ipv4(.loopback), port: port)
 
-            let listener = try NWListener(using: parameters, on: port)
+            let listener = try NWListener(using: parameters)
             listener.newConnectionHandler = { [weak self] connection in
                 guard Self.isLoopback(connection.endpoint) else {
                     connection.cancel()
@@ -221,6 +222,17 @@ private final class LocalAPIConnectionHandler {
             let key = line[..<separator].trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
             let value = line[line.index(after: separator)...].trimmingCharacters(in: .whitespacesAndNewlines)
             headers[key] = value
+        }
+
+        if headers["origin"] != nil || headers["sec-fetch-site"]?.lowercased() == "cross-site" {
+            return .failure(LocalAPI.error("Cross-origin browser requests are not allowed.", status: 403))
+        }
+
+        if let hostHeader = headers["host"]?.lowercased() {
+            let hostOnly = hostHeader.split(separator: ":", maxSplits: 1).first.map(String.init) ?? hostHeader
+            if hostOnly != "127.0.0.1" && hostOnly != "localhost" {
+                return .failure(LocalAPI.error("Invalid Host header.", status: 403))
+            }
         }
 
         let contentLength: Int

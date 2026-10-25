@@ -81,7 +81,7 @@ final class AppleSpeechProvider: TranscriptionProvider {
         // 3. Create Request
         let request = SFSpeechAudioBufferRecognitionRequest()
         request.shouldReportPartialResults = false // We want the final result for this chunk
-        request.requiresOnDeviceRecognition = false // Allow macOS to use the best available Apple speech path.
+        request.requiresOnDeviceRecognition = true // Enforce on-device recognition so audio is never streamed externally.
         request.append(buffer)
         request.endAudio() // Signal that this buffer is the complete utterance for this request
 

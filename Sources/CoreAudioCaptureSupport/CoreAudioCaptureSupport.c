@@ -535,6 +535,10 @@ static OSStatus fv_io_proc(
         const uint32_t channelCount = buffer->mNumberChannels;
         const uint32_t bufferBytesPerFrame =
             fv_core_audio_buffer_bytes_per_frame(capture->bytesPerSample, channelCount);
+        if (bufferBytesPerFrame == 0 ||
+            buffer->mDataByteSize / bufferBytesPerFrame < frameCount) {
+            continue;
+        }
         for (uint32_t frame = 0; frame < frameCount; ++frame) {
             const uint8_t *frameData = data + frame * bufferBytesPerFrame;
             float sum = 0.0f;
