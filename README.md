@@ -206,15 +206,16 @@ cd FluidVoice
 
 ### Option 1: Build with Xcode Command Line Tools (`xcode-select`, No Full Xcode Required)
 
-If you only have the standalone macOS Command Line Tools installed (`xcode-select -p` points to `/Library/Developer/CommandLineTools`), `./build.sh` automatically compiles `FluidVoice` via `swift build`, compiles the `fv-serve` helper via `xcrun swiftc`, packages the `.app` bundle (icons, assets, resources, and embedded frameworks), and signs/verifies it:
+If you only have the standalone macOS Command Line Tools installed (`xcode-select -p` points to `/Library/Developer/CommandLineTools`), `./build.sh` automatically compiles a **Universal (`arm64` + `x86_64`)** `FluidVoice` binary via `swift build`, compiles a Universal `fv-serve` helper via `xcrun swiftc`, packages the `.app` bundle (icons, assets, resources, and embedded frameworks), and signs/verifies it:
 
 ```bash
 # 1. Ensure Xcode Command Line Tools are installed
 xcode-select --install 2>/dev/null || true
 
-# 2. Build and package FluidVoice.app
+# 2. Build a Universal (arm64 + x86_64) FluidVoice.app
 ./build.sh
-# (Or force the Command Line Tools build even when full Xcode is installed: ./build.sh clt)
+# (Or force the Command Line Tools Universal build even when full Xcode is installed: ./build.sh universal)
+# (For a faster single-architecture build targeting only the current Mac: ./build.sh native)
 ```
 
 The built app bundle is output to:
@@ -223,12 +224,29 @@ The built app bundle is output to:
 DerivedData/Build/Products/Debug/FluidVoice.app
 ```
 
-To install it into `/Applications` (using `ditto` to preserve framework symlinks and code signatures) and launch it:
+#### Installing Locally
+
+Copy the bundle into `/Applications` using `ditto` (which preserves framework symlinks and code signatures) and launch it:
 
 ```bash
 ditto "DerivedData/Build/Products/Debug/FluidVoice.app" "/Applications/FluidVoice.app"
 open "/Applications/FluidVoice.app"
 ```
+
+#### Distributing to Another Mac (Apple Silicon or Intel)
+
+Because `./build.sh` produces a self-contained **Universal (`arm64` + `x86_64`)** bundle, the same `FluidVoice.app` runs natively on **Apple Silicon Macs** (unlocking all Apple Silicon models: Nemotron 3.5, Parakeet Flash, Parakeet TDT v3 & v2, Cohere Transcribe, Apple Speech, and Whisper) and **Intel Macs** (Whisper and Apple Speech) without needing developer tools on the target machine:
+
+1. **Create a zip archive on the build Mac** (using `ditto` so `CTranscribe.framework` symlinks are preserved):
+   ```bash
+   ditto -c -k --sequesterRsrc --keepParent "DerivedData/Build/Products/Debug/FluidVoice.app" ~/Desktop/FluidVoice.zip
+   ```
+2. **Unpack and clear Gatekeeper quarantine on the target Mac** (required for ad-hoc signed builds transferred via AirDrop, browser, or cloud storage):
+   ```bash
+   ditto -x -k ~/Downloads/FluidVoice.zip /Applications
+   xattr -cr /Applications/FluidVoice.app
+   open /Applications/FluidVoice.app
+   ```
 
 ### Option 2: Build with Full Xcode
 

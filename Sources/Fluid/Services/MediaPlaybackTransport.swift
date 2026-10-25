@@ -1,5 +1,5 @@
 import Foundation
-#if arch(arm64)
+#if arch(arm64) && canImport(MediaRemoteAdapter)
 import MediaRemoteAdapter
 #endif
 
@@ -105,7 +105,7 @@ final nonisolated class MediaPlaybackProcessTransport: MediaPlaybackTransport, @
     }
 
     private func run(_ command: String, timeout: TimeInterval) -> MediaHelperResult {
-        #if arch(arm64)
+        #if arch(arm64) && canImport(MediaRemoteAdapter)
         let framework = Bundle(for: MediaController.self)
         guard let library = framework.executablePath,
               let resourceURL = Bundle.main.url(

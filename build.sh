@@ -4,10 +4,11 @@
 # Defaults to the public OSS build, which skips private Fluid Intelligence.
 #
 # Usage:
-#   ./build.sh                    # signed public OSS build (falls back to CLT if Xcode.app is absent)
+#   ./build.sh                    # signed public OSS build (falls back to Universal CLT build if Xcode.app is absent)
 #   ./build.sh public             # signed public OSS build
 #   ./build.sh unsigned           # unsigned public OSS build (CI/fallback)
-#   ./build.sh clt                # Command Line Tools (swift build) public OSS build
+#   ./build.sh clt                # Command Line Tools (swift build) Universal (arm64 + x86_64) build
+#   ./build.sh native             # Command Line Tools (swift build) host-architecture-only build
 #   ./build.sh fi                 # private FI build
 
 set -euo pipefail
@@ -121,12 +122,15 @@ run_clt_public_build() {
     local frameworks_dir="${contents_dir}/Frameworks"
     local resources_dir="${contents_dir}/Resources"
     local ctranscribe_framework="${frameworks_dir}/CTranscribe.framework"
-    local bin_dir
-    local host_arch
+    local bin_dir=""
+    local arch_list="${FLUIDVOICE_ARCHS:-arm64 x86_64}"
+    local arch
+    local arch_bin_dir
+    local -a fluid_slices=()
+    local -a fvserve_slices=()
 
     cd "${PROJECT_DIR}"
     developer_dir="${DEVELOPER_DIR:-$(xcode-select -p)}"
-    host_arch="$(uname -m)"
 
     if [ "${signing_mode}" = "signed" ]; then
         signing_identity_hash="$(resolve_development_identity_hash)"
@@ -142,37 +146,48 @@ run_clt_public_build() {
         fi
     fi
 
-    echo "Building FluidVoice using Xcode Command Line Tools (${developer_dir})..."
+    echo "Building FluidVoice (${arch_list}) using Xcode Command Line Tools (${developer_dir})..."
     mkdir -p "${intermediates_dir}"
     xcrun clang -O2 "${PROJECT_DIR}/scripts/clt_macro_plugin.c" -o "${macro_plugin}"
 
-    swift build -c debug --product FluidVoice \
-        -Xswiftc -load-plugin-executable \
-        -Xswiftc "${macro_plugin}#SwiftUIMacros,PreviewsMacros"
+    for arch in ${arch_list}; do
+        echo "Compiling FluidVoice slice for ${arch}..."
+        swift build -c debug --arch "${arch}" --product FluidVoice \
+            -Xswiftc -load-plugin-executable \
+            -Xswiftc "${macro_plugin}#SwiftUIMacros,PreviewsMacros"
 
-    bin_dir="$(swift build -c debug --show-bin-path)"
-    if [ ! -x "${bin_dir}/FluidVoice" ]; then
-        echo "Built FluidVoice binary is missing at ${bin_dir}/FluidVoice" >&2
-        exit 1
-    fi
+        arch_bin_dir="$(swift build -c debug --arch "${arch}" --show-bin-path)"
+        if [ ! -x "${arch_bin_dir}/FluidVoice" ]; then
+            echo "Built FluidVoice binary for ${arch} is missing at ${arch_bin_dir}/FluidVoice" >&2
+            exit 1
+        fi
+        fluid_slices+=("${arch_bin_dir}/FluidVoice")
+        [ -z "${bin_dir}" ] && bin_dir="${arch_bin_dir}"
+
+        echo "Compiling fv-serve slice for ${arch}..."
+        xcrun swiftc -O \
+            -target "${arch}-apple-macosx15.0" \
+            -module-name FVServe \
+            "${PROJECT_DIR}/Sources/FVServe/main.swift" \
+            "${PROJECT_DIR}/Sources/Fluid/Services/FluidServe/FluidServeCommand.swift" \
+            "${PROJECT_DIR}/Sources/Fluid/Services/FluidServe/FluidServeMeetings.swift" \
+            "${PROJECT_DIR}/Sources/Fluid/Services/FluidServe/FluidServeSkill.swift" \
+            -o "${intermediates_dir}/fv-serve-${arch}"
+        fvserve_slices+=("${intermediates_dir}/fv-serve-${arch}")
+    done
 
     echo "Assembling app bundle at ${app_path}..."
     rm -rf "${app_path}" "${DERIVED_DATA_PATH}/Build/Products/Debug/FluidVoice Debug.app"
     mkdir -p "${macos_dir}" "${helpers_dir}" "${frameworks_dir}" "${resources_dir}"
 
-    cp "${bin_dir}/FluidVoice" "${macos_dir}/FluidVoice"
-    chmod +x "${macos_dir}/FluidVoice"
-
-    echo "Compiling fv-serve helper..."
-    xcrun swiftc -O \
-        -target "${host_arch}-apple-macosx15.0" \
-        -module-name FVServe \
-        "${PROJECT_DIR}/Sources/FVServe/main.swift" \
-        "${PROJECT_DIR}/Sources/Fluid/Services/FluidServe/FluidServeCommand.swift" \
-        "${PROJECT_DIR}/Sources/Fluid/Services/FluidServe/FluidServeMeetings.swift" \
-        "${PROJECT_DIR}/Sources/Fluid/Services/FluidServe/FluidServeSkill.swift" \
-        -o "${helpers_dir}/fv-serve"
-    chmod +x "${helpers_dir}/fv-serve"
+    if [ "${#fluid_slices[@]}" -gt 1 ]; then
+        lipo -create "${fluid_slices[@]}" -output "${macos_dir}/FluidVoice"
+        lipo -create "${fvserve_slices[@]}" -output "${helpers_dir}/fv-serve"
+    else
+        cp "${fluid_slices[0]}" "${macos_dir}/FluidVoice"
+        cp "${fvserve_slices[0]}" "${helpers_dir}/fv-serve"
+    fi
+    chmod +x "${macos_dir}/FluidVoice" "${helpers_dir}/fv-serve"
 
     printf 'APPL????' > "${contents_dir}/PkgInfo"
 
@@ -410,8 +425,11 @@ case "${PROFILE}" in
     unsigned|ci)
         run_public_build unsigned
         ;;
-    clt)
+    clt|universal)
         FLUIDVOICE_USE_CLT=1 run_public_build signed
+        ;;
+    native)
+        FLUIDVOICE_USE_CLT=1 FLUIDVOICE_ARCHS="$(uname -m)" run_public_build signed
         ;;
     fi|private|dev|full)
         if [ ! -x "${PRIVATE_FI_BUILD_SCRIPT}" ]; then
@@ -424,7 +442,7 @@ case "${PROFILE}" in
         ;;
     *)
         echo "Unknown build profile: ${PROFILE}"
-        echo "Valid profiles: public/oss/incremental/fast, unsigned/ci, clt, fi/private/dev/full"
+        echo "Valid profiles: public/oss/incremental/fast, unsigned/ci, clt/universal, native, fi/private/dev/full"
         exit 1
         ;;
 esac

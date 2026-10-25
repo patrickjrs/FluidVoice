@@ -25,10 +25,13 @@ nonisolated enum CompactSpeechModelRuntimeCheck {
     }
 
     static var recordingURL: URL? {
+        if let bundled = Bundle(for: FluidAudioProvider.self).url(forResource: "speech-model-check", withExtension: "pcm") {
+            return bundled
+        }
         #if SWIFT_PACKAGE
-        Bundle.module.url(forResource: "speech-model-check", withExtension: "pcm")
+        return Bundle.module.url(forResource: "speech-model-check", withExtension: "pcm")
         #else
-        Bundle(for: FluidAudioProvider.self).url(forResource: "speech-model-check", withExtension: "pcm")
+        return nil
         #endif
     }
 
