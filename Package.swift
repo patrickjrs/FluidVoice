@@ -37,11 +37,34 @@ let package = Package(
                 .product(name: "TranscribeCpp", package: "transcribe-cpp-swift"),
                 .product(name: "ZeppelinEmbed", package: "zeppelin-embed"),
             ],
+            path: "Sources/Fluid",
+            exclude: [
+                "AppIcon.icon",
+                "Assets.xcassets",
+                "CoreAudioCaptureSupportBridge.c",
+                "CoreAudioCaptureSupportBridge.h",
+                "Fluid-Bridging-Header.h",
+                "Theme/Components/README.md",
+                "UI/DictionaryVoiceWave.metal",
+            ],
             resources: [
-                .copy("Resources/speech-model-check.pcm"),
+                .process("Resources"),
+            ],
+            swiftSettings: [
+                .enableUpcomingFeature("DisableOutwardActorInference"),
+                .enableUpcomingFeature("GlobalActorIsolatedTypesUsability"),
+                .enableUpcomingFeature("InferIsolatedConformances"),
+                .enableUpcomingFeature("InferSendableFromCaptures"),
+                .enableUpcomingFeature("NonisolatedNonsendingByDefault"),
+                .enableUpcomingFeature("MemberImportVisibility"),
+                .unsafeFlags(["-default-isolation", "MainActor"]),
             ],
             linkerSettings: [
                 .linkedLibrary("sqlite3"),
+                .unsafeFlags([
+                    "-Xlinker", "-rpath",
+                    "-Xlinker", "@executable_path/../Frameworks",
+                ]),
             ]
         ),
     ]

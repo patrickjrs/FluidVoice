@@ -202,30 +202,63 @@ To pause listening without ending a hands-free dictation, enable **Settings → 
 ```bash
 git clone https://github.com/altic-dev/FluidVoice.git
 cd FluidVoice
+```
+
+### Option 1: Build with Xcode Command Line Tools (`xcode-select`, No Full Xcode Required)
+
+If you only have the standalone macOS Command Line Tools installed (`xcode-select -p` points to `/Library/Developer/CommandLineTools`), `./build.sh` automatically compiles `FluidVoice` via `swift build`, compiles the `fv-serve` helper via `xcrun swiftc`, packages the `.app` bundle (icons, assets, resources, and embedded frameworks), and signs/verifies it:
+
+```bash
+# 1. Ensure Xcode Command Line Tools are installed
+xcode-select --install 2>/dev/null || true
+
+# 2. Build and package FluidVoice.app
+./build.sh
+# (Or force the Command Line Tools build even when full Xcode is installed: ./build.sh clt)
+```
+
+The built app bundle is output to:
+
+```text
+DerivedData/Build/Products/Debug/FluidVoice.app
+```
+
+To install it into `/Applications` (using `ditto` to preserve framework symlinks and code signatures) and launch it:
+
+```bash
+ditto "DerivedData/Build/Products/Debug/FluidVoice.app" "/Applications/FluidVoice.app"
+open "/Applications/FluidVoice.app"
+```
+
+### Option 2: Build with Full Xcode
+
+If you have full `Xcode.app` installed, point `xcode-select` to it:
+
+```bash
+sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+sudo xcodebuild -license accept
 open Fluid.xcodeproj
 ```
 
-Build and run in Xcode. All dependencies are managed via Swift Package Manager.
-
-Run a signed Debug build using the script:
+Build and run in Xcode, or run a signed Debug build from the terminal:
 
 ```bash
 ./build.sh
 ```
 
-The signed build is written to `DerivedData/Build/Products/Debug/FluidVoice Debug.app`.
+The Xcode Debug build is written to `DerivedData/Build/Products/Debug/FluidVoice Debug.app`.
 Keep launching that product after each rebuild so macOS can preserve its Accessibility
 authorization.
 
-For CI or contributors who do not have a signing identity, use the explicit unsigned
-fallback:
+For CI or contributors who do not have an Apple Development signing identity, use the
+explicit unsigned fallback:
 
 ```bash
 ./build.sh unsigned
 ```
 
-Unsigned builds are tied to a specific executable version and may require Accessibility,
-Screen Recording, and microphone permissions to be removed and granted again after rebuilding.
+Unsigned/ad-hoc builds are tied to a specific executable hash and may require Accessibility,
+Screen Recording, and microphone permissions to be toggled or re-granted in **System Settings → Privacy & Security** after rebuilding.
 
 ---
 
